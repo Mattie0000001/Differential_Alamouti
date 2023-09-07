@@ -14,15 +14,16 @@ User = [30, 50, 0];
 Dis_h1 = norm(AP - User); % distance between AP and User
 Dis_g1 = norm(IRS - User); % distance between AP and User
 
-N_dbm = -85;  % noise, in dBm
-N = db2pow(N_dbm); % noise, in mW
+% N_dbm = -85;  % noise, in dBm
+N_dbm_range = 0:5:30;
+%N = db2pow(N_dbm); % noise, in mW
 
 Alpha = 3; % path loss component
 Beta_dB = -30; % reference path gain, in dB
 Beta = db2pow(Beta_dB); % reference path gain, in unit 1
 
 % P_dbm = 15 : 1 : 35; % transmit power, in dBm
-P_dbm = 15; % transmit power, in dBm
+P_dbm = 30; % transmit power, in dBm
 P = db2pow(P_dbm); % transmit power, in mW
 
 Gamma = pow2db(P / N); % transmit SNR
@@ -33,7 +34,6 @@ Path_loss_h1 = Beta * Dis_h1 ^ (- Alpha);
 L_pack = 100; % Packedge length, even number
 Right_cnt = 0;
 Error_cnt = 0;
-Error_array = zeros(10, 1);
 Num_pack = 10; % Numbers of packedge
 L_block = L_pack / 2;
 
@@ -73,44 +73,59 @@ Sigma_h1 = Path_loss_h1;
 %% variables initialization
 y_old = [0, 0]; % y_k
 y_new = [0, 0]; % y_k+1
-S_old = [0, 0; 0, 0]; % X
-S_new = [1, 1; -1, 1]; % X
-H = [0, 0]; 
+S_old = [0, 0; 0, 0]; % X_k
+S_new = [1, 1; -1, 1]*sqrt(1/2); % X_k+1
+H = [0; 0]; 
 
 %% get the set of U
 U_set = get_U_set(M);
 
-for np = 1 : Num_pack
-    %% Data initial
-    [Data, Index] = initial_data(M, L_block);    
-    %% channel gain
-    H = get_channels(Gain_g0, Array_reflection, Mu_g1, Sigma_g1, Sigma_h1);
-    % first transmission
-    S_new = S_new * sqrt(1/2);
-    y_new = get_received_symbols(N, P, H, S_new);
-    %% transmission
-    for k = 1 : L_block
-      S_old = S_new;
-      U_theo = S_new * S_old';
-      y_old = y_new;
-      %% symbol modulation
-      S_new = get_modulate_symbols(k, Data);
-      %% new transmission
-      y_new = get_received_symbols(N, P, H, S_new);
-      %% demodulation
-      U_k = demodulate(U_set, y_old, y_new);
-      %% count the error
-      if isequal(round(U_theo*10^6)/10^6, round(U_k*10^6)/10^6)
-        Right_cnt = Right_cnt + 1;
-      else
-        Error_cnt = Error_cnt + 1;
-        Error_array(Error_cnt) = k;
-      end
+loop = 1;
+
+SER_array = zeros(1, size(N_db_range));
+%% waitbar
+h = waitbar(0, "Computing...");
+Sum = size(N_db_range)*Num_pack*L_block;
+
+for N_dbm = N_db_range
+    N = db2pow(N_dbm); % noise, in mW
+    for np = 1 : Num_pack
+        %% Data initial
+        [Data, Index] = initial_data(M, L_block);    
+        %% channel gain
+        H = get_channels(Gain_g0, Array_reflection, Mu_g1, Sigma_g1, Sigma_h1);
+        % first transmission
+        y_new = get_received_symbols(N, P, H, S_new);
+        %% transmission
+        for k = 1 : L_block
+          %% waitbar
+          Current = k + (np-1)*L_block + (loop-1)*Num_pack*L_block;
+          waitbar()
+
+          S_old = S_new;
+          y_old = y_new;
+          %% symbol modulation
+          S_new = get_modulate_symbols(k, Data);
+          U_theo = S_new * S_old';
+          %% new transmission
+          y_new = get_received_symbols(N, P, H, S_new);
+          %% demodulation
+                U_k = demodulate(U_set, y_old, y_new);
+          %% count the error
+          if isequal(round(U_theo*10^6)/10^6, round(U_k*10^6)/10^6)
+            Right_cnt = Right_cnt + 1;
+          else
+            Error_cnt = Error_cnt + 1;
+          end
+        end
     end
+    
+    SER_array(loop) = 2 * Error_cnt / (Num_pack * L_pack);
+    loop = loop + 1;
+
 end
 
-SER = 2 * Error_cnt / (Num_pack * L_pack);
-  
+%plot
 
 
 
