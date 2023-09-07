@@ -14,26 +14,26 @@ User = [30, 50, 0];
 Dis_h1 = norm(AP - User); % distance between AP and User
 Dis_g1 = norm(IRS - User); % distance between AP and User
 
-% N_dbm = -85;  % noise, in dBm
+N_dbm = -85;  % noise, in dBm
 N_dbm_range = 0:5:30;
-%N = db2pow(N_dbm); % noise, in mW
+N = db2pow(N_dbm); % noise, in mW
 
 Alpha = 3; % path loss component
 Beta_dB = -30; % reference path gain, in dB
 Beta = db2pow(Beta_dB); % reference path gain, in unit 1
 
-% P_dbm = 15 : 1 : 35; % transmit power, in dBm
-P_dbm = 30; % transmit power, in dBm
-P = db2pow(P_dbm); % transmit power, in mW
+P_dbm_range = 0 : 5 : 30; % transmit power, in dBm
+% P_dbm = 30; % transmit power, in dBm
+% P = db2pow(P_dbm); % transmit power, in mW
 
 Path_loss_g1 = Beta * Dis_g1 ^ (- Alpha);
 Path_loss_h1 = Beta * Dis_h1 ^ (- Alpha);
 
-L_pack = 100; % Packedge length, even number
-Right_cnt = 0;
-Error_cnt = 0;
+L_pack = 1000; % Packedge length, even number
 Num_pack = 10; % Numbers of packedge
 L_block = L_pack / 2;
+Right_cnt = 0;
+Error_cnt = 0;
 
 %% IRS coefficient constant
 Num_y = 105; 
@@ -80,13 +80,13 @@ U_set = get_U_set(M);
 
 loop = 1;
 
-SER_array = zeros(1, length(N_dbm_range));
+SER_array = zeros(1, length(P_dbm_range));
 %% waitbar
 h = waitbar(0, "Computing...");
-Sum = length(N_dbm_range)*Num_pack*L_block;
+Sum = length(P_dbm_range)*Num_pack*L_block;
 
-for N_dbm = N_dbm_range
-    N = db2pow(N_dbm); % noise, in mW
+for P_dbm = P_dbm_range
+    P = db2pow(P_dbm); % transmit power, in mW
     for np = 1 : Num_pack
         %% Data initial
         [Data, Index] = initial_data(M, L_block);    
@@ -128,7 +128,7 @@ end
 delete(h);
 
 %% plot
-plot(N_dbm_range, SER_array);
+semilogy(P_dbm_range, SER_array);
 
 
 
